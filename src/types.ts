@@ -12,4 +12,5 @@ export interface NewsResponse {
   success: boolean;
   count: number;
   data: News[];
+  error?: string;
 }

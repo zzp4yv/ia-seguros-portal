@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 const categories = [
   "Todas",
   "Brasil",
@@ -12,16 +10,22 @@ const categories = [
   "Mercado",
 ];
 
-export default function CategoryFilter() {
-  const [active, setActive] = useState("Todas");
+interface CategoryFilterProps {
+  active: string;
+  onFilter: (category: string) => void;
+}
 
+export default function CategoryFilter({
+  active,
+  onFilter,
+}: CategoryFilterProps) {
   return (
     <div style={styles.container}>
       <div style={styles.scrollWrapper}>
         {categories.map((cat) => (
           <button
             key={cat}
-            onClick={() => setActive(cat)}
+            onClick={() => onFilter(cat)}
             style={{
               ...styles.button,
               ...(active === cat ? styles.activeButton : {}),

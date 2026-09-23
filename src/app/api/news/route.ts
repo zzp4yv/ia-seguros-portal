@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
-import { newsData } from "@/data/news";
+import { getNews } from "@/services/newsService";
 
 export async function GET() {
-  const response = NextResponse.json({
-    success: true,
-    count: newsData.length,
-    data: newsData,
-  });
+  try {
+    const news = await getNews();
 
-  response.headers.set(
-    "Cache-Control",
-    "public, s-maxage=60, stale-while-revalidate=300"
-  );
+    const response = NextResponse.json({
+      success: true,
+      count: news.length,
+      data: news,
+    });
 
-  return response;
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+
+    return response;
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        count: 0,
+        data: [],
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      },
+      { status: 500 }
+    );
+  }
 }
