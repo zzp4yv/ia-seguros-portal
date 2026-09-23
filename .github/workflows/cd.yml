@@ -7,43 +7,47 @@ on:
     types: [completed]
 
 jobs:
-  cd:
+  deploy:
+    name: Deploy no host Docker (dockeroxi, via runner self-hosted)
     if: github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, dockeroxi]
+    env:
+      DEPLOY_PATH: /opt/ia-seguros-portal
     steps:
-      - name: Checkout
+      # dockeroxi so e alcancavel dentro da VPN Pangolin do Instituto
+      # Oxigenio, entao um runner hospedado pelo GitHub nao consegue
+      # SSHar ate ele. Este job roda localmente num runner self-hosted
+      # (usuario dedicado `ghrunner`, no grupo `docker`) que vive no
+      # proprio dockeroxi, sem precisar de SSH nem de segredos de
+      # conexao.
+      - name: Checkout do codigo
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Deploy to dockeroxi
-        uses: appleboy/ssh-action@v1
-        with:
-          host: 192.168.10.66
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            rm -rf /opt/ia-seguros-portal/
-            mkdir -p /opt/ia-seguros-portal/
-            cd /opt/ia-seguros-portal/
+      - name: Sincronizar codigo para o diretorio de deploy
+        run: |
+          set -euo pipefail
+          mkdir -p "$DEPLOY_PATH"
+          rsync -a --delete --exclude='.git' --exclude='.github' ./ "$DEPLOY_PATH/"
 
-      - name: Upload code via scp
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 192.168.10.66
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "*"
-          target: "/opt/ia-seguros-portal/"
-          rm: true
-          exclude: ".github,.git,.vscode,node_modules,.next"
+      - name: Build e deploy (docker compose)
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          docker compose up -d --build
+          docker image prune -f
 
-      - name: Build and deploy
-        uses: appleboy/ssh-action@v1
-        with:
-          host: 192.168.10.66
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd /opt/ia-seguros-portal/
-            docker compose up -d --build
+      - name: Verificar saude do servico apos deploy
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            if curl -fsS "http://localhost:3002/api/health"; then
+              echo "Servico saudavel."
+              exit 0
+            fi
+            echo "Aguardando servico ficar saudavel... ($i/10)"
+            sleep 5
+          done
+          echo "Servico nao respondeu com saude OK apos o deploy." >&2
+          exit 1
