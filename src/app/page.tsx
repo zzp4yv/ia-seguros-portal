@@ -38,13 +38,15 @@ export default function Home() {
     };
   }, []);
 
-  const trending = news[0];
+  const isFiltering = activeCategory !== "Todas" || searchQuery.trim() !== "";
+  const trending = isFiltering ? undefined : news[0];
   const categories = [
     "Todas",
     ...Array.from(new Set(news.map((item) => item.category))).sort(),
   ];
 
-  const filteredNews = news.slice(1).filter((item) => {
+  const listSource = isFiltering ? news : news.slice(1);
+  const filteredNews = listSource.filter((item) => {
     const matchesCategory =
       activeCategory === "Todas" || item.category === activeCategory;
     const query = searchQuery.trim().toLowerCase();
@@ -54,6 +56,11 @@ export default function Home() {
       item.summary.toLowerCase().includes(query);
     return matchesCategory && matchesSearch;
   });
+
+  function resetFilters() {
+    setActiveCategory("Todas");
+    setSearchQuery("");
+  }
 
   useEffect(() => {
     setAnimate(true);
@@ -74,25 +81,35 @@ export default function Home() {
       {/* Header */}
       <header style={styles.header}>
         <div style={{ ...styles.container, ...styles.headerRow }}>
-          <Link href="/" style={styles.logo}>
+          <Link href="/" style={styles.logo} onClick={resetFilters}>
             IA & Seguros Portal
           </Link>
           <nav style={styles.nav}>
-            <Link href="/" style={styles.navLink}>
+            <button
+              style={{
+                ...styles.navLink,
+                ...styles.navButton,
+                ...(!isFiltering ? styles.navLinkActive : {}),
+              }}
+              onClick={resetFilters}
+            >
               Início
-            </Link>
-            <Link href="/" style={styles.navLink}>
-              Brasil
-            </Link>
-            <Link href="/" style={styles.navLink}>
-              Mundo
-            </Link>
-            <Link href="/" style={styles.navLink}>
-              Tech
-            </Link>
-            <Link href="/" style={styles.navLink}>
-              Regulação
-            </Link>
+            </button>
+            {categories
+              .filter((cat) => cat !== "Todas")
+              .map((cat) => (
+                <button
+                  key={cat}
+                  style={{
+                    ...styles.navLink,
+                    ...styles.navButton,
+                    ...(activeCategory === cat ? styles.navLinkActive : {}),
+                  }}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
             <button
               style={styles.searchButton}
               onClick={() => setShowSearch(!showSearch)}
@@ -118,33 +135,35 @@ export default function Home() {
       )}
 
       {/* Hero Section */}
-      <section style={styles.hero}>
-        <div style={{ ...styles.container, ...styles.heroContent }}>
-          {loading || !trending ? (
-            <p style={styles.heroSummary}>Carregando notícias...</p>
-          ) : (
-            <>
-              <span style={styles.categoryBadge}>{trending.category}</span>
-              <h1 style={styles.heroTitle}>{trending.title}</h1>
-              <p style={styles.heroSummary}>{trending.summary}</p>
-              <div style={styles.heroMeta}>
-                <span>{trending.source}</span>
-                <span>
-                  {new Date(trending.date).toLocaleDateString("pt-BR")}
-                </span>
-              </div>
-              <a
-                href={trending.url}
-                style={styles.heroLink}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Ler matéria completa →
-              </a>
-            </>
-          )}
-        </div>
-      </section>
+      {!isFiltering && (
+        <section style={styles.hero}>
+          <div style={{ ...styles.container, ...styles.heroContent }}>
+            {loading || !trending ? (
+              <p style={styles.heroSummary}>Carregando notícias...</p>
+            ) : (
+              <>
+                <span style={styles.categoryBadge}>{trending.category}</span>
+                <h1 style={styles.heroTitle}>{trending.title}</h1>
+                <p style={styles.heroSummary}>{trending.summary}</p>
+                <div style={styles.heroMeta}>
+                  <span>{trending.source}</span>
+                  <span>
+                    {new Date(trending.date).toLocaleDateString("pt-BR")}
+                  </span>
+                </div>
+                <a
+                  href={trending.url}
+                  style={styles.heroLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Ler matéria completa →
+                </a>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Category Filter */}
       <div style={{ ...styles.container, ...styles.filterSection }}>
@@ -265,6 +284,16 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     transition: "color 0.2s",
+  },
+  navButton: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  navLinkActive: {
+    color: "#e94560",
   },
   searchButton: {
     background: "transparent",

@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SITE_URL=https://ia-seguros.oxigenio.online
     ports:
       - "3001:3000"
     restart: unless-stopped

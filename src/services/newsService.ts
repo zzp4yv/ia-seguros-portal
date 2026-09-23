@@ -22,6 +22,18 @@ interface FeedSource {
 // qualquer noticia com "ia" em qualquer parte da palavra vira ruido.
 const FEED_SOURCES: FeedSource[] = [
   {
+    url: "https://www.revistaapolice.com.br/feed/",
+    source: "Revista Apólice",
+    category: "Brasil",
+    filterMode: "ai-only",
+  },
+  {
+    url: "https://sonhoseguro.com.br/feed/",
+    source: "Sonho Seguro",
+    category: "Brasil",
+    filterMode: "ai-only",
+  },
+  {
     url: "https://www.cnnbrasil.com.br/feed/",
     source: "CNN Brasil",
     category: "Brasil",
@@ -58,6 +70,7 @@ const AI_TERMS = [
   "inteligencia artificial",
   "inteligência artificial",
   "ai",
+  "artificial intelligence",
   "machine learning",
   "deep learning",
   "llm",
@@ -132,17 +145,25 @@ async function fetchFeed(source: FeedSource): Promise<News[]> {
     }));
 }
 
-export async function getNews(): Promise<News[]> {
+const CACHE_TTL_MS = 60_000;
+let cache: { data: News[]; expiresAt: number } | null = null;
+
+async function fetchAllFeeds(): Promise<News[]> {
   const results = await Promise.allSettled(
     FEED_SOURCES.map((source) => fetchFeed(source))
   );
 
-  const news = results
-    .filter(
-      (result): result is PromiseFulfilledResult<News[]> =>
-        result.status === "fulfilled"
-    )
-    .flatMap((result) => result.value);
+  const news: News[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      news.push(...result.value);
+    } else {
+      console.error(
+        `[newsService] falha ao buscar feed "${FEED_SOURCES[index].source}":`,
+        result.reason
+      );
+    }
+  });
 
   if (news.length === 0) {
     return fallbackNews;
@@ -151,4 +172,14 @@ export async function getNews(): Promise<News[]> {
   return news.sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
+}
+
+export async function getNews(): Promise<News[]> {
+  if (cache && cache.expiresAt > Date.now()) {
+    return cache.data;
+  }
+
+  const data = await fetchAllFeeds();
+  cache = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+  return data;
 }
