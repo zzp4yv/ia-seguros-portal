@@ -15,14 +15,19 @@ interface FeedSource {
 
 const FEED_SOURCES: FeedSource[] = [
   {
-    url: "https://www.cnnbrasil.com.br/tecnologia/feed/",
+    url: "https://www.cnnbrasil.com.br/feed/",
     source: "CNN Brasil",
     category: "Brasil",
   },
   {
-    url: "https://www.insurancebusinessmag.com/br/rss/",
-    source: "Insurance Business",
+    url: "https://www.infomoney.com.br/feed/",
+    source: "InfoMoney",
     category: "Mercado",
+  },
+  {
+    url: "https://www.insurancebusinessmag.com/us/rss/",
+    source: "Insurance Business",
+    category: "Mundo",
   },
   {
     url: "https://www.insurancejournal.com/feed/",
