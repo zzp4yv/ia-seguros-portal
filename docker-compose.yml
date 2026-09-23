@@ -7,7 +7,7 @@ services:
       args:
         - NEXT_PUBLIC_SITE_URL=https://ia-seguros.oxigenio.online
     ports:
-      - "3001:3000"
+      - "3002:3000"
     restart: unless-stopped
     environment:
       - NODE_ENV=production
