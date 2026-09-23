@@ -1,0 +1,12 @@
+services:
+  ia-seguros-portal:
+    image: ia-seguros-portal:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

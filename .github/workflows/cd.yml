@@ -11,29 +11,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build -t ia-seguros-portal:latest .
-
-      - name: Save image
-        run: docker save ia-seguros-portal:latest > /tmp/ia-seguros-portal.tar
-
-      - name: Transfer image to dockeroxi
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 192.168.10.66
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "/tmp/ia-seguros-portal.tar"
-          target: "/tmp/"
-
-      - name: Deploy on dockeroxi
+      - name: Deploy to dockeroxi
         uses: appleboy/ssh-action@v1
         with:
           host: 192.168.10.66
           username: root
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            rm -rf /opt/ia-seguros-portal/
             mkdir -p /opt/ia-seguros-portal/
-            docker load < /tmp/ia-seguros-portal.tar
-            docker compose -f /opt/ia-seguros-portal/docker-compose.yml up -d
+            cd /opt/ia-seguros-portal/
+
+      - name: Upload code via scp
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 192.168.10.66
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "*"
+          target: "/opt/ia-seguros-portal/"
+          rm: true
+          exclude: ".github,.git,.vscode,node_modules,.next"
+
+      - name: Build and deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 192.168.10.66
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/ia-seguros-portal/
+            docker compose up -d --build
