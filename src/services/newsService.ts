@@ -7,41 +7,53 @@ const parser = new Parser({
   headers: { "User-Agent": "ia-seguros-portal/1.0" },
 });
 
+export type FilterMode = "ai-only" | "ai-and-insurance";
+
 interface FeedSource {
   url: string;
   source: string;
   category: string;
+  filterMode: FilterMode;
 }
 
+// Fontes já especializadas em seguros: exigimos so o termo de IA, pois o
+// assunto "seguros" ja e garantido pelo proprio veiculo.
+// Fontes generalistas (Brasil/Mercado): exigimos IA E seguros juntos, senao
+// qualquer noticia com "ia" em qualquer parte da palavra vira ruido.
 const FEED_SOURCES: FeedSource[] = [
   {
     url: "https://www.cnnbrasil.com.br/feed/",
     source: "CNN Brasil",
     category: "Brasil",
+    filterMode: "ai-and-insurance",
   },
   {
     url: "https://www.infomoney.com.br/feed/",
     source: "InfoMoney",
     category: "Mercado",
+    filterMode: "ai-and-insurance",
   },
   {
     url: "https://www.insurancebusinessmag.com/us/rss/",
     source: "Insurance Business",
     category: "Mundo",
+    filterMode: "ai-only",
   },
   {
     url: "https://www.insurancejournal.com/feed/",
     source: "Insurance Journal",
     category: "Mundo",
+    filterMode: "ai-only",
   },
   {
     url: "https://techcrunch.com/feed/",
     source: "TechCrunch",
     category: "Tech",
+    filterMode: "ai-and-insurance",
   },
 ];
 
-const KEYWORDS = [
+const AI_TERMS = [
   "ia",
   "inteligencia artificial",
   "inteligência artificial",
@@ -51,25 +63,54 @@ const KEYWORDS = [
   "llm",
   "chatgpt",
   "openai",
-  "generativa",
-  "generative",
-  "segur",
-  "insurance",
-  "insurtech",
-  "lloyd's",
-  "regula",
-  "tecnologia",
-  "inov",
+  "ia generativa",
+  "generative ai",
+  "algoritmo",
 ];
 
-function matchesKeywords(text: string): boolean {
-  const normalized = text.toLowerCase();
-  return KEYWORDS.some((keyword) => normalized.includes(keyword));
+const INSURANCE_TERMS = [
+  "seguro",
+  "seguros",
+  "segurador",
+  "seguradora",
+  "insurtech",
+  "insurance",
+  "apolice",
+  "apólice",
+  "sinistro",
+  "resseguro",
+  "previdencia",
+  "previdência",
+  "lloyd's",
+];
+
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+function escapeRegExp(term: string): string {
+  return term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesAny(normalizedText: string, terms: string[]): boolean {
+  return terms.some((term) => {
+    const pattern = new RegExp(`\\b${escapeRegExp(normalize(term))}\\b`);
+    return pattern.test(normalizedText);
+  });
+}
+
+export function isRelevant(text: string, mode: FilterMode): boolean {
+  const normalized = normalize(text);
+  const hasAi = matchesAny(normalized, AI_TERMS);
+  if (mode === "ai-only") return hasAi;
+  return hasAi && matchesAny(normalized, INSURANCE_TERMS);
 }
 
 function buildId(link: string | undefined, fallback: string): string {
-  if (!link) return fallback;
-  return Buffer.from(link).toString("base64").slice(0, 16);
+  return link && link.length > 0 ? link : fallback;
 }
 
 async function fetchFeed(source: FeedSource): Promise<News[]> {
@@ -78,7 +119,7 @@ async function fetchFeed(source: FeedSource): Promise<News[]> {
   return (feed.items ?? [])
     .filter((item) => {
       const text = `${item.title ?? ""} ${item.contentSnippet ?? ""}`;
-      return matchesKeywords(text);
+      return isRelevant(text, source.filterMode);
     })
     .map((item) => ({
       id: buildId(item.link, `${source.source}-${item.title ?? ""}`),

@@ -1,21 +1,13 @@
 "use client";
 
-const categories = [
-  "Todas",
-  "Brasil",
-  "Mundo",
-  "Tech",
-  "Regulação",
-  "Inovação",
-  "Mercado",
-];
-
 interface CategoryFilterProps {
+  categories: string[];
   active: string;
   onFilter: (category: string) => void;
 }
 
 export default function CategoryFilter({
+  categories,
   active,
   onFilter,
 }: CategoryFilterProps) {

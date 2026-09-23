@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import NewsCard from "@/components/NewsCard";
 import CategoryFilter from "@/components/CategoryFilter";
-import { newsData } from "@/data/news";
+import { News, NewsResponse } from "@/types";
+import { newsData as fallbackNews } from "@/data/news";
 
 export default function Home() {
+  const [news, setNews] = useState<News[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("Todas");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -14,9 +17,34 @@ export default function Home() {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterSent, setNewsletterSent] = useState(false);
 
-  const trending = newsData[0];
+  useEffect(() => {
+    let cancelled = false;
 
-  const filteredNews = newsData.slice(1).filter((item) => {
+    fetch("/api/news")
+      .then((res) => res.json() as Promise<NewsResponse>)
+      .then((json) => {
+        if (cancelled) return;
+        setNews(json.success && json.data.length > 0 ? json.data : fallbackNews);
+      })
+      .catch(() => {
+        if (!cancelled) setNews(fallbackNews);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const trending = news[0];
+  const categories = [
+    "Todas",
+    ...Array.from(new Set(news.map((item) => item.category))).sort(),
+  ];
+
+  const filteredNews = news.slice(1).filter((item) => {
     const matchesCategory =
       activeCategory === "Todas" || item.category === activeCategory;
     const query = searchQuery.trim().toLowerCase();
@@ -92,28 +120,40 @@ export default function Home() {
       {/* Hero Section */}
       <section style={styles.hero}>
         <div style={{ ...styles.container, ...styles.heroContent }}>
-          <span style={styles.categoryBadge}>{trending.category}</span>
-          <h1 style={styles.heroTitle}>{trending.title}</h1>
-          <p style={styles.heroSummary}>{trending.summary}</p>
-          <div style={styles.heroMeta}>
-            <span>{trending.source}</span>
-            <span>{new Date(trending.date).toLocaleDateString("pt-BR")}</span>
-          </div>
-          <a
-            href={trending.url}
-            style={styles.heroLink}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Ler matéria completa →
-          </a>
+          {loading || !trending ? (
+            <p style={styles.heroSummary}>Carregando notícias...</p>
+          ) : (
+            <>
+              <span style={styles.categoryBadge}>{trending.category}</span>
+              <h1 style={styles.heroTitle}>{trending.title}</h1>
+              <p style={styles.heroSummary}>{trending.summary}</p>
+              <div style={styles.heroMeta}>
+                <span>{trending.source}</span>
+                <span>
+                  {new Date(trending.date).toLocaleDateString("pt-BR")}
+                </span>
+              </div>
+              <a
+                href={trending.url}
+                style={styles.heroLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ler matéria completa →
+              </a>
+            </>
+          )}
         </div>
       </section>
 
       {/* Category Filter */}
       <div style={{ ...styles.container, ...styles.filterSection }}>
         <div style={styles.filterRow}>
-          <CategoryFilter active={activeCategory} onFilter={setActiveCategory} />
+          <CategoryFilter
+            categories={categories}
+            active={activeCategory}
+            onFilter={setActiveCategory}
+          />
           <span style={styles.searchResultsInfo}>
             {filteredNews.length}{" "}
             {filteredNews.length === 1 ? "notícia" : "notícias"}
@@ -124,7 +164,9 @@ export default function Home() {
       {/* News Grid */}
       <section style={{ ...styles.container, ...styles.gridSection }}>
         <h2 style={styles.sectionTitle}>Últimas Notícias</h2>
-        {filteredNews.length === 0 ? (
+        {loading ? (
+          <p style={styles.emptyState}>Carregando notícias...</p>
+        ) : filteredNews.length === 0 ? (
           <p style={styles.emptyState}>
             Nenhuma notícia encontrada para os filtros selecionados.
           </p>
